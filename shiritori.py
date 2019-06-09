@@ -10,6 +10,13 @@ class Game:
         self.word_set = set()
         self.is_alive = True
 
+    def copy(self):
+        g = Game()
+        g.last_word = self.last_word
+        g.word_set = self.word_set.copy()
+        g.is_alive = self.is_alive
+        return g
+
     def add_word(self, word):
         """Adds word to chain
         """
@@ -52,8 +59,3 @@ class Game:
                 return target
                     
         raise Exception("Word is invalid")
-
-g = Game()
-while True:
-    g.add_word(input("Enter word: "))
-    print(g.last_word, g.is_alive)
