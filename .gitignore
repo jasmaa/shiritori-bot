@@ -105,5 +105,5 @@ venv.bak/
 
 # bot
 praw.ini
-reply_ids.txt
+replied_ids.txt
 log.txt

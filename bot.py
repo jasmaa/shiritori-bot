@@ -1,60 +1,69 @@
 import praw
 import logging
 import sys
+import regex as re
+
 import shiritori
 
 def build_response(content):
     """Builds bot response
     """
+    
     response = content
     response += "\n***\n^(I am a bot and I byte)"
     return response
 
-def check_replied(comment):
-    """Check if the bot has already replied in the comments
+def check_replied_to(comment):
+    """Check if the bot has already replied to a post
     """
-    with open("reply_ids.txt", "r") as f:
-        reply_ids = set(f.read().split("\n"))
+    
+    with open("replied_ids.txt", "r") as f:
+        replied_ids = set(f.read().splitlines())
+        f.close()
 
     # check if comment already replied to
-    for c in comment.replies.list():
-        if c.id in reply_ids:
-            return True
-    return False
+    return comment.id in replied_ids
+
+def is_valid_word(s):
+    """Checks if is a Japanese word
+    """
     
+    return len(s.split()) == 1 and re.match("^[\p{IsHan}\p{IsHira}\p{IsKatakana}]+$", s)
+
 
 def process_comment(game, comment):
     """Descends and processes replies
     """
 
-    with open("reply_ids.txt", "r") as f:
-        reply_ids = set(f.read().split("\n"))
-
-    if comment.id not in reply_ids:
+    # Only check if not replied to and is a word
+    if not check_replied_to(comment) and is_valid_word(comment.body):
 
         logging.info(f"Processing comment {comment.id}: {comment.body}")
         
         try:
             g = game.copy()
             g.add_word(comment.body)
+
+            # DFS through comments
+            for next_comment in comment.replies:
+                process_comment(g, next_comment)
+                
         except Exception as error:
             # Process shiritori exception
             if type(error) == shiritori.ShiritoriException:
-                if not check_replied(comment):
-                    reply = comment.reply(build_response(f"GAME OVER: {error}"))
-                    with open("reply_ids.txt", "a") as f:
-                        f.write(f"{reply.id}\n")
-                        
+                
+                logging.info(f"Replying to comment {comment.id}: {comment.body}")
+                
+                reply = comment.reply(build_response(f"GAME OVER on {comment.body}: {error}"))
+                with open("replied_ids.txt", "a") as f:
+                    f.write(f"{comment.id}\n")
+                    f.close()
             # Rethrow otherwise
             else:
                 raise
-    
-    # DFS through comments
-    for next_comment in comment.replies.list():
-        process_comment(g, next_comment)
 
 def main():
-    """Main
+    """Main process
     """
 
     # Logging
@@ -79,15 +88,15 @@ def main():
     while True:
 
         for submission in subreddit.new(limit=10):
-            if submission.title == "SHIRITORI START":
+            if submission.title == "SHIRITORI START" and is_valid_word(submission.selftext):
 
                 logging.info(f"Processing submission {submission.id}: {submission.selftext}")
                 
                 for comment in submission.comments:
-                    # ignore deleted
-                    if comment.body == "[deleted]":
+                    # Ignore deleted and non-words
+                    if comment.body == "[deleted]" or not is_valid_word(submission.selftext):
                         continue
-                
+
                     g = shiritori.Game()
                     g.add_word(submission.selftext)
                     process_comment(g, comment)
