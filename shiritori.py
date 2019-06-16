@@ -1,5 +1,6 @@
 import requests
 import json
+import regex as re
 import jaconv
 
 class ShiritoriException(Exception):
@@ -25,11 +26,13 @@ class Game:
         g.is_alive = self.is_alive
         return g
 
+
     def add_word(self, word):
         """Adds word to chain
         """
         
         if self.is_alive:
+            
             word_data = self.get_word_data(word)
             if word_data:
                 self.last_word = word_data
@@ -41,6 +44,7 @@ class Game:
                     self.word_set.add(word_data['reading'])
             else:
                 self.is_alive = False
+
 
     def get_word_data(self, word):
         """Gets and validates word

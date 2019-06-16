@@ -10,7 +10,7 @@ def build_response(content):
     """
     
     response = content
-    response += "\n***\n^(I am a bot and I byte)"
+    response += "\n***\n^(I am a bot and I byte | [source](https://github.com/jasmaa/shiritori-bot))"
     return response
 
 def check_replied_to(comment):
@@ -19,7 +19,6 @@ def check_replied_to(comment):
     
     with open("replied_ids.txt", "r") as f:
         replied_ids = set(f.read().splitlines())
-        f.close()
 
     # check if comment already replied to
     return comment.id in replied_ids
@@ -57,7 +56,7 @@ def process_comment(game, comment):
                 reply = comment.reply(build_response(f"GAME OVER on {comment.body}: {error}"))
                 with open("replied_ids.txt", "a") as f:
                     f.write(f"{comment.id}\n")
-                    f.close()
+
             # Rethrow otherwise
             else:
                 raise
@@ -79,8 +78,10 @@ def main():
     root.addHandler(stdout_handler)
     root.addHandler(file_handler)
     
-    
     logging.info("Starting bot...")
+
+    with open("replied_ids.txt", "a") as f:
+        logging.info("Make sure replied ids file exists")
 
     reddit = praw.Reddit('shiritori-bot')
     subreddit = reddit.subreddit('test')
@@ -90,16 +91,27 @@ def main():
         for submission in subreddit.new(limit=10):
             if submission.title == "SHIRITORI START" and is_valid_word(submission.selftext):
 
-                logging.info(f"Processing submission {submission.id}: {submission.selftext}")
-                
-                for comment in submission.comments:
-                    # Ignore deleted and non-words
-                    if comment.body == "[deleted]" or not is_valid_word(submission.selftext):
-                        continue
-
+                try:
+                    logging.info(f"Processing submission {submission.id}: {submission.selftext}")
+                    
                     g = shiritori.Game()
                     g.add_word(submission.selftext)
-                    process_comment(g, comment)
+                    
+                    for comment in submission.comments:
+                        # Ignore deleted and non-words
+                        if not is_valid_word(submission.selftext):
+                            continue
+
+                        process_comment(g, comment)
+                        
+                except Exception as error:
+                    # Process shiritori exception
+                    if type(error) == shiritori.ShiritoriException:
+                        pass
+                    
+                    # Rethrow otherwise
+                    else:
+                        raise
 
 if __name__ == "__main__":
     main()
